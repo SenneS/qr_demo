@@ -163,7 +163,7 @@ fun createQrScanner() {
 
                 val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
                 val qrScanner = QrScanner({barcode ->
-                    Toast.makeText(context, "Qr scanned: ${barcode[0].toString()}", Toast.LENGTH_SHORT)
+                    Toast.makeText(context, "Qr scanned: ${barcode[0].toString()}", Toast.LENGTH_SHORT).show()
                 })
 
                 val imageAnalysis : ImageAnalysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build().also { ia ->
@@ -200,7 +200,9 @@ class QrScanner(
             if (imageImage != null) {
                 val inputImage = InputImage.fromMediaImage(imageImage, image.imageInfo.rotationDegrees)
                 barcodeScanner.process(inputImage).addOnSuccessListener { barcode ->
-                    callback(barcode)
+                    if(!barcode.isEmpty()) {
+                        callback(barcode)
+                    }
                 }.addOnCompleteListener {
                     image.close()
                 }
