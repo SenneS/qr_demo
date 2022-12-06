@@ -78,4 +78,7 @@ dependencies {
     //barcode-scanning
     implementation 'com.google.mlkit:barcode-scanning:17.0.2'
 
+    //permission helper?
+    implementation "com.google.accompanist:accompanist-permissions:0.28.0"
+
 }
