@@ -1,12 +1,16 @@
 package be.senne.qr_demo
 
+import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.TypedValue
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -33,6 +37,10 @@ import be.senne.qr_demo.ui.theme.Qr_demoTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import net.glxn.qrgen.android.QRCode
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.security.KeyPairGenerator
@@ -152,15 +160,53 @@ fun createQrScanner() {
                 val preview = Preview.Builder().build().also { preview ->
                     preview.setSurfaceProvider(previewView.surfaceProvider)
                 }
-                val cameraSelector =
-                    CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                        .build()
+
+                val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+                val qrScanner = QrScanner({barcode ->
+                    Toast.makeText(context, "Qr scanned: ${barcode[0].toString()}", Toast.LENGTH_SHORT)
+                })
+
+                val imageAnalysis : ImageAnalysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build().also { ia ->
+                    ia.setAnalyzer(executor, qrScanner)
+                }
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
+                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
 
             }, executor)
             previewView
         }, modifier = Modifier.fillMaxSize())
+    }
+}
+
+//image.image mag anders niet.
+@SuppressLint("UnsafeOptInUsageError")
+class QrScanner(
+    var callback: (barcode : List<Barcode>) -> Unit
+) : ImageAnalysis.Analyzer {
+
+    //private var callback: (barcode : List<Barcode>) -> Unit
+    private var lastAttempt = 0
+
+    override fun analyze(image: ImageProxy) {
+        val currentAttempt = System.currentTimeMillis()
+        //1 poging / 0.5 seconden
+        if(currentAttempt - lastAttempt >= 500) {
+
+            val barcodeScannerOptions = BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+            val barcodeScanner = BarcodeScanning.getClient(barcodeScannerOptions)
+
+            val imageImage = image.image
+            if (imageImage != null) {
+                val inputImage = InputImage.fromMediaImage(imageImage, image.imageInfo.rotationDegrees)
+                barcodeScanner.process(inputImage).addOnSuccessListener { barcode ->
+                    callback(barcode)
+                }.addOnCompleteListener {
+                    image.close()
+                }
+            }
+        } else {
+            image.close()
+        }
     }
 }
